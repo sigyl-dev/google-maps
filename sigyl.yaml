@@ -1,5 +1,6 @@
 runtime: node
 language: typescript
+entryPoint: server.js
 startCommand:
   type: http
   configSchema:
