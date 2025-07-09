@@ -1,19 +1,18 @@
 runtime: node
 language: typescript
-entryPoint: server.js
 startCommand:
   type: http
   configSchema:
     type: object
-    required:
-      - apiKey
     properties:
       apiKey:
         type: string
         title: Google Maps API Key
-        description: Google Maps API key. Get one from https://mapsplatform.google.com (required)
+        description: Google Maps API key. Get one from https://mapsplatform.google.com
       debug:
         type: boolean
-        title: Enable Debug Logging
+        title: Debug
         description: Enable debug logging
         default: false
+    required:
+      - apiKey
