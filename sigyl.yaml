@@ -4,6 +4,8 @@ startCommand:
   type: http
   configSchema:
     type: object
+    required:
+      - apiKey
     properties:
       apiKey:
         type: string
@@ -14,5 +16,8 @@ startCommand:
         title: Debug
         description: Enable debug logging
         default: false
-    required:
-      - apiKey
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    config=>({command:'node',args:['dist/server.js'],env:{apiKey:config.apiKey}})
+    

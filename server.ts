@@ -3,22 +3,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-// Multi-source environment variable getter for secret injection
-function getEnv(key: string, req?: any): string | undefined {
-  // 1. Try request headers (for secret injection)
-  if (req?.headers && req.headers[key.toLowerCase()]) {
-    return req.headers[key.toLowerCase()];
-  }
-  
-  // 2. Try request context/body for environment variables
-  if (req?.body?.context?.environment && req.body.context.environment[key]) {
-    return req.body.context.environment[key];
-  }
-  
-  // 3. Fallback to process environment
-  return process.env[key];
-}
-
 // Response interfaces
 interface GoogleMapsResponse {
   status: string;
@@ -151,7 +135,7 @@ export const configSchema = z.object({
 
 // Extract Google Maps tools for standalone use
 function createGoogleMapsTools(config: z.infer<typeof configSchema>, req?: any) {
-  const apiKey = config.apiKey || getEnv('GOOGLE_MAPS_API_KEY', req) || getEnv('apiKey', req);
+  const apiKey = config.apiKey || "placholder-apiKey";
   
   if (!apiKey) {
     throw new Error('GOOGLE_MAPS_API_KEY is required but not provided');
@@ -478,149 +462,4 @@ export default function createStatelessServer({
 }) {
   const { createServer } = createGoogleMapsTools(config);
   return createServer();
-}
-
-// HTTP Bridge for remote deployment
-async function startHttpServer() {
-  const express = (await import('express')).default;
-  const app = express();
-  app.use(express.json({ limit: '50mb' }));
-  
-  let mcpServer: any = null;
-  
-  // Health check endpoint
-  app.get('/health', (req: any, res: any) => {
-    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
-  });
-  
-  // Health check for GET /mcp as well
-  app.get('/mcp', (req: any, res: any) => {
-    res.json({ 
-      status: 'ready',
-      name: 'Google Maps MCP Server',
-      version: '0.1.0'
-    });
-  });
-  
-  // Main MCP endpoint
-  app.post('/mcp', async (req: any, res: any) => {
-    try {
-      const { method, params } = req.body;
-      
-      if (method === 'initialize') {
-        // Extract config from params, with API key injection support
-        const apiKey = getEnv('GOOGLE_MAPS_API_KEY', req) || getEnv('apiKey', req);
-        
-        if (!apiKey) {
-          return res.status(400).json({
-            jsonrpc: '2.0',
-            error: {
-              code: -32602,
-              message: 'GOOGLE_MAPS_API_KEY is required'
-            },
-            id: req.body.id
-          });
-        }
-        
-        const config = {
-          apiKey,
-          debug: params?.debug || false
-        };
-        
-        try {
-          const { createServer } = createGoogleMapsTools(config, req);
-          mcpServer = createServer();
-          res.json({
-            jsonrpc: '2.0',
-            result: {
-              protocolVersion: '2024-11-05',
-              capabilities: {
-                tools: {}
-              },
-              serverInfo: {
-                name: 'Google Maps MCP Server',
-                version: '0.1.0'
-              }
-            },
-            id: req.body.id
-          });
-        } catch (error) {
-          res.status(500).json({
-            jsonrpc: '2.0',
-            error: {
-              code: -32603,
-              message: `Failed to initialize server: ${error instanceof Error ? error.message : String(error)}`
-            },
-            id: req.body.id
-          });
-        }
-        return;
-      }
-      
-      if (!mcpServer) {
-        return res.status(400).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32002,
-            message: 'Server not initialized. Call initialize first.'
-          },
-          id: req.body.id
-        });
-      }
-      
-      if (method === 'tools/list') {
-        const toolsList = await mcpServer.request({ method: 'tools/list' });
-        res.json({
-          jsonrpc: '2.0',
-          result: toolsList,
-          id: req.body.id
-        });
-        return;
-      }
-      
-      if (method === 'tools/call') {
-        const result = await mcpServer.request({
-          method: 'tools/call',
-          params: params
-        });
-        res.json({
-          jsonrpc: '2.0',
-          result: result,
-          id: req.body.id
-        });
-        return;
-      }
-      
-      // Handle other methods
-      const result = await mcpServer.request({ method, params });
-      res.json({
-        jsonrpc: '2.0',
-        result: result,
-        id: req.body.id
-      });
-      
-    } catch (error) {
-      console.error('MCP request error:', error);
-      res.status(500).json({
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : String(error)
-        },
-        id: req.body.id
-      });
-    }
-  });
-  
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Google Maps MCP Server listening on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
-    console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
-  });
-}
-
-// Start HTTP server if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startHttpServer().catch(console.error);
 }
