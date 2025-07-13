@@ -135,7 +135,7 @@ export const configSchema = z.object({
 
 // Extract Google Maps tools for standalone use
 function createGoogleMapsTools(config: z.infer<typeof configSchema>, req?: any) {
-  const apiKey = config.apiKey || "placholder-apiKey";
+  const apiKey = config.apiKey || "placeholder-apiKey";
   
   if (!apiKey) {
     throw new Error('GOOGLE_MAPS_API_KEY is required but not provided');
@@ -450,7 +450,7 @@ function createGoogleMapsTools(config: z.infer<typeof configSchema>, req?: any) 
     }
   );
 
-      return server.server;
+      return server;
     }
   };
 }
